@@ -1,0 +1,67 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.Optional;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    public Employee saveEmployee(Employee employee) {
+        return employeeRepository.save(employee);
+    }
+
+    public TaxDeductionDTO getTaxDeductions(String employeeId) {
+        Optional<Employee> employeeOptional = employeeRepository.findById(employeeId);
+        if (!employeeOptional.isPresent()) {
+            throw new ResourceNotFoundException("Employee not found");
+        }
+        Employee employee = employeeOptional.get();
+
+        double yearlySalary = calculateYearlySalary(employee);
+        double taxAmount = calculateTax(yearlySalary);
+        double cessAmount = calculateCess(yearlySalary);
+
+        TaxDeductionDTO taxDeductionDTO = new TaxDeductionDTO();
+        taxDeductionDTO.setEmployeeId(employee.getEmployeeId());
+        taxDeductionDTO.setFirstName(employee.getFirstName());
+        taxDeductionDTO.setLastName(employee.getLastName());
+        taxDeductionDTO.setYearlySalary(yearlySalary);
+        taxDeductionDTO.setTaxAmount(taxAmount);
+        taxDeductionDTO.setCessAmount(cessAmount);
+
+        return taxDeductionDTO;
+    }
+
+    private double calculateYearlySalary(Employee employee) {
+        LocalDate doj = employee.getDoj();
+        LocalDate now = LocalDate.now();
+        int monthsWorked = Period.between(doj, now).getMonths();
+        return employee.getSalary() * monthsWorked;
+    }
+
+    private double calculateTax(double yearlySalary) {
+        double tax = 0;
+        if (yearlySalary > 250000) {
+            if (yearlySalary <= 500000) {
+                tax = (yearlySalary - 250000) * 0.05;
+            } else if (yearlySalary <= 1000000) {
+                tax = 250000 * 0.05 + (yearlySalary - 500000) * 0.10;
+            } else {
+                tax = 250000 * 0.05 + 500000 * 0.10 + (yearlySalary - 1000000) * 0.20;
+            }
+        }
+        return tax;
+    }
+
+    private double calculateCess(double yearlySalary) {
+        if (yearlySalary > 2500000) {
+            return (yearlySalary - 2500000) * 0.02;
+        }
+        return 0;
+    }
+}
